@@ -9,7 +9,8 @@ import(
 var input string = ""                                   //Input String of the std_in
 var done chan bool = make(chan bool)                    //Main waits for the goroutine
 var start_done chan bool = make(chan bool)              //finish the Start ticker goroutine
-var start_runs chan bool = make(chan bool)              //Needa look how to make this better where it is involved 
+var is_start chan bool = make(chan bool)              //Needa look how to make this better where it is involved 
+var is_option chan bool = make(chan bool)              //Needa look how to make this better where it is involved 
 
 
 func main(){
@@ -20,11 +21,19 @@ func main(){
     Check_input_main()
 
     //if user is tracking time check its inputs
-    <- start_runs
-    Check_input_start()
+    for{
+        select{
+            case <- is_start:
+                Check_input_start()
+            case <- is_option:
+                Check_input_option()
+        }
+    }
 
     <- done
 }
+
+/*-----------------Input Checks------------------*/
 
 func Check_input_main(){
     Show_text("main")
@@ -42,6 +51,7 @@ func Check_input_main(){
                 break loop
             //Change options of the timer 
             case input == "options", input == "o":
+                go Options()
                 break loop
             //Add further option like get overtime and current time worked and...
 
@@ -67,7 +77,6 @@ func Check_input_start(){
         switch{
             //Stops the timer
             case input == "stop", input == "s":
-                fmt.Println("inner Test")
                 go Stop_timer()
                 break loop
             //Wrong input
@@ -80,10 +89,36 @@ func Check_input_start(){
     }
 }
 
+//Checks the input if the Timer was started 
+func Check_input_option(){
+    Show_text("option")
+    loop:
+    for{
+        //get user Input and LowerCase it 
+        fmt.Scan(&input)
+        input = strings.ToLower(input)
+        //decide through the input what the user can do
+        switch{
+            //Stops the timer
+            case input == "", input == "":
+                go Stop_timer()
+                break loop
+            //Wrong input
+            default:
+                Show_text("clear")
+                fmt.Println("WTF is going on!!")
+                fmt.Println("Can't you read???")
+                break
+        }
+    }
+}
+
+/*-----------------Functions------------------*/
+
 //Start the timer
 func Start_timer(){ 
     start_show_time := time.NewTicker(5 * time.Second)           //Setups Ticker of X Seconds
-    start_runs <- true                                              //tell goroutine is running
+    is_start <- true                                              //tell goroutine is running
     start_time := time.Now()                                        //get the time work started
     //fmt.Println("Tracks time...")                                 //Debug
     //Every time Ticker -> Prints current working time
@@ -108,6 +143,8 @@ func Stop_timer(){
         done <- true
     }
 }
+
+/*-----------------TUI-Text------------------*/
 
 //Shows text to the cmd according to the label
 func Show_text(label string){
