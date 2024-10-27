@@ -8,9 +8,11 @@ import (
 
 var input string = ""                     //Input String of the std_in
 var done chan bool = make(chan bool)      //Main waits for the goroutine
+var isMain chan bool = make(chan bool)
 var startDone chan bool = make(chan bool) //finish the Start ticker goroutine
 var isStart chan bool = make(chan bool)   //Needa look how to make this better where it is involved
 var isOption chan bool = make(chan bool)  //Needa look how to make this better where it is involved
+
 
 func main() {
 	//start up text and clear after programm ends
@@ -27,8 +29,10 @@ func main() {
 			checkInputStart()
 		case <-isOption:
 			checkInputOption()
-		case <-done:
+		case <-isMain:
 			checkInputMain()
+        case <-done:
+            return
 		}
 	}
 }
@@ -45,17 +49,26 @@ loop:
 		input = strings.ToLower(input)
 		//decide through the input what the user can do
 		switch {
+
 		//Starting timer in thread
 		case input == "start", input == "s":
+	        isStart <- true                                 //switch to the startScreen
 			go StartTimer()
 			break loop
+
 		//Change options of the timer
 		case input == "options", input == "o":
 			go Options()
 			break loop
-		//Add further option like get overtime and current time worked and...
+
+        //TODO: Add further option like get overtime and current time worked and...
+
+        case input == "quit", input == "q":
+            done <- true
+            break loop
 
 		//Wrong Input
+        //TODO: Currently not working properly - where should the TUI be reseted?
 		default:
 			showText("clear")
 			fmt.Println("WTF is going on!!")
@@ -114,10 +127,9 @@ loop:
 
 // Start the timer
 func StartTimer() {
-	startShowTime := time.NewTicker(5 * time.Second) //Setups Ticker of X Seconds
-	isStart <- true                                  //tell goroutine is running
-	startTime := time.Now()                          //get the time work started
-	//fmt.Println("Tracks time...")                                 //Debug
+	showTime := time.NewTicker(5 * time.Second)     //Setups Ticker of X Seconds
+	startTime := time.Now()                         //get the time work started
+
 	//Every time Ticker -> Prints current working time
 	for {
 		select {
@@ -126,21 +138,24 @@ func StartTimer() {
 			return
 
 			//Print the current working time
-		case curTime := <-startShowTime.C:
+		case curTime := <-showTime.C:
 			showText("start")
-			fmt.Print("Your current Work time is: ", curTime.Sub(startTime))
+            unformattedCurTime := curTime.Sub(startTime)
+			fmt.Print("Your current Work time is: ", unformattedCurTime.Round(time.Second))
 		}
 	}
 }
 
 // Stop the timer
 func StopTimer() {
-	done <- true
+	isMain <- true
 	startDone <- true
 }
 
 func Options() {
-
+    test := "test"
+    fmt.Print(test)
+    isMain <- true
 }
 
 /*-----------------TUI-Text------------------*/
@@ -150,13 +165,11 @@ func showText(label string) {
 	label = strings.ToLower(label)
 	switch {
 	case label == "main":
-		showText("clear")
 		fmt.Println("U wanna Track your time?")
 		fmt.Println("Here are your options:")
 		fmt.Println("Start tracking: \"S(tart)\"")
 		fmt.Println("Options for the Tracker: \"O(ptions)\"")
 	case label == "start":
-		showText("clear")
 		fmt.Println("Your time gets currently tracked...")
 		fmt.Println("Your current options:")
 		fmt.Println("Stop tracking: \"Stop\"")
