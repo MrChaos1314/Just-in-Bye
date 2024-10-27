@@ -14,29 +14,35 @@ var isStart chan bool = make(chan bool)   //Needa look how to make this better w
 var isOption chan bool = make(chan bool)  //Needa look how to make this better where it is involved
 
 var formattedCurTime time.Duration 
+//Var which will be shown in TUI and used in Options
+//NEEDS TO BE CHANGED -> HAVE TO BE IN A CONF FILE!!
+var workTime time.Duration = time.Duration(8 * time.Hour)
+var breakTime time.Duration = time.Duration(30 * time.Minute)
+var refreshRate time.Duration = time.Duration(5 * time.Second)
+var endOfWork bool = false;
 
 func main() {
 	//start up text and clear after programm ends
-	defer showText("clear")
+	defer clearText()
 
 	//checks for the std_input
-    showText("clear")
-	checkInputMain()
+    clearText()
+    checkInputMain()
 
-	//if user is tracking time check its inputs
+    //if user is tracking time check its inputs
 loop:
-	for {
-		select {
-		case <-isStart:
-            showText("clear")
+    for {
+        select {
+        case <-isStart:
+            clearText()
             checkInputStart()
             break
         case <-isOption:
-            showText("clear")
+            clearText()
             checkInputOption()
             break
         case <-isMain:
-            showText("clear")
+            clearText()
             checkInputMain()
             break
         case <-done:
@@ -49,7 +55,7 @@ loop:
 /*-----------------Input Checks------------------*/
 
 func checkInputMain() {
-	showText("main")
+	showTextMain()
 	//label for breaking mid switch statement
 loop:
 	for {
@@ -78,7 +84,7 @@ loop:
 		//Wrong Input
         //TODO: Currently not working properly - where should the TUI be reseted?
 		default:
-			showText("clear")
+			showTextMain()
 			fmt.Println("WTF is going on!!")
 			fmt.Println("Can't you read???")
 		}
@@ -87,7 +93,7 @@ loop:
 
 // Checks the input if the Timer was started
 func checkInputStart() {
-	showText("start")
+	showTextStart()
 loop:
 	for {
 		//get user Input and LowerCase it
@@ -101,7 +107,7 @@ loop:
 			break loop
 		//Wrong input
 		default:
-			showText("clear")
+            clearText()
 			fmt.Println("WTF is going on!!")
 			fmt.Println("Can't you read???")
 		}
@@ -110,23 +116,28 @@ loop:
 
 // Checks the input if the Timer was started
 func checkInputOption() {
-	showText("option")
 loop:
 	for {
+        clearText()
+        showTextOptions()
 		//get user Input and LowerCase it
 		fmt.Scan(&input)
 		input = strings.ToLower(input)
 		//decide through the input what the user can do
 		switch {
+
 		//Stops the timer
-		case input == "", input == "":
-			StopTimer()
-			break loop
+		case input == "end", input == "e":
+            toggleEndOfWork()
+			break 
+
+        case input == "quit", input == "q":
+            go BackToMain()
+            break loop
+
 		//Wrong input
 		default:
-			showText("clear")
-			fmt.Println("WTF is going on!!")
-			fmt.Println("Can't you read???")
+            break
 		}
 	}
 }
@@ -135,8 +146,8 @@ loop:
 
 // Start the timer
 func StartTimer() {
-	isStart <- true                                 //switch to the startScreen
-	showTime := time.NewTicker(5 * time.Second)     //Setups Ticker of X Seconds
+	isStart <- true                                 //switch TUI to startScreen
+    showTime := time.NewTicker(refreshRate)     //Setups Ticker of X Seconds - TODO: Make it configureable
 	startTime := time.Now()                         //get the time work started
 
 	//Every time Ticker -> Prints current working time
@@ -148,8 +159,8 @@ func StartTimer() {
 
 			//Print the current working time
 		case curTime := <-showTime.C:
-            showText("clear")
-			showText("start")
+            clearText()
+            showTextStart()
             unformattedCurTime := curTime.Sub(startTime)
             formattedCurTime = unformattedCurTime.Round(time.Second)
 		}
@@ -162,41 +173,68 @@ func StopTimer() {
 	startDone <- true
 }
 
+//change TUI in main to Options
 func Options() {
-    test := "test"
-    fmt.Print(test)
+    isOption <- true
+}
+
+//change TUI back to Main
+func BackToMain(){
     isMain <- true
 }
 
+//Quit whole Program
 func Quit(){
     done <- true
 }
 
+//changes rather Timer should also display when u can leave work
+func toggleEndOfWork(){
+
+    if(endOfWork == true){
+        endOfWork = false
+    }else{
+        endOfWork = true
+    }
+
+}
+
 /*-----------------TUI-Text------------------*/
 
-// Shows text to the cmd according to the label
-func showText(label string) {
-	label = strings.ToLower(label)
-	switch {
 
-	case label == "main":
-		fmt.Println("U wanna Track your time?")
-		fmt.Print("Here are your options:\n\n")
-		fmt.Println("\tStart tracking:          \"S(tart)\"")
-		fmt.Println("\tOptions for the Tracker: \"O(ptions)\"")
-		fmt.Println("\tQuit:                    \"Q(uit)\"")
-    break
+func showTextMain(){
+    fmt.Println("U wanna Track your time?")
+    fmt.Println("Here are your options:")
+    fmt.Println()
+    fmt.Println("\tS(tart) tracking")
+    fmt.Println("\tO(ptions) for the Tracker")
+    fmt.Println()
+    fmt.Println("Q(uit)")
+    fmt.Println()
+}
 
-	case label == "start":
-		fmt.Println("Your time gets currently tracked...")
-		fmt.Print("Your current options:\n\n")
-		fmt.Println("Stop tracking:  \"S(top)\"")
-        fmt.Print("Pause traching: \"P(ause)\"\n\n")
-        fmt.Println("Your current work time is: ", formattedCurTime)
-    break
+func showTextStart(){
+    fmt.Println("Your time gets currently tracked...")
+    fmt.Println("Your current options:")
+    fmt.Println()
+    fmt.Println("\tStop tracking:  \"S(top)\"")
+    fmt.Println("\tPause traching: \"P(ause)\"")
+    fmt.Println()
+    fmt.Println("Your current work time is: ", formattedCurTime)
+    fmt.Println()
+}
 
-	case label == "clear", label == "clr":
+func showTextOptions(){
+    fmt.Println("Options:")
+    fmt.Println()
+    fmt.Println("\tW(ork) time in Hours: ", workTime.Hours(), "Hours")
+    fmt.Println("\tB(reak) time in Minutes: ", breakTime.Minutes(), "Minutes")
+    fmt.Println("\tR(efresh) rate in Seconds: ", refreshRate.Seconds(), "Seconds")
+    fmt.Println("\tE(nd) of Work: ", endOfWork)
+    fmt.Println("Q(uit)")
+    fmt.Println("")
+}
+
+func clearText(){
 		fmt.Print("\033[H\033[2J")
-    break
-	}
 }
