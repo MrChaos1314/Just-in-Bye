@@ -13,26 +13,35 @@ var startDone chan bool = make(chan bool) //finish the Start ticker goroutine
 var isStart chan bool = make(chan bool)   //Needa look how to make this better where it is involved
 var isOption chan bool = make(chan bool)  //Needa look how to make this better where it is involved
 
+var formattedCurTime time.Duration 
 
 func main() {
 	//start up text and clear after programm ends
 	defer showText("clear")
 
 	//checks for the std_input
+    showText("clear")
 	checkInputMain()
 
 	//if user is tracking time check its inputs
-	//loop:
+loop:
 	for {
 		select {
 		case <-isStart:
-			checkInputStart()
-		case <-isOption:
-			checkInputOption()
-		case <-isMain:
-			checkInputMain()
+            showText("clear")
+            checkInputStart()
+            break
+        case <-isOption:
+            showText("clear")
+            checkInputOption()
+            break
+        case <-isMain:
+            showText("clear")
+            checkInputMain()
+            break
         case <-done:
-            return
+            fmt.Print("test")
+            break loop 
 		}
 	}
 }
@@ -52,7 +61,6 @@ loop:
 
 		//Starting timer in thread
 		case input == "start", input == "s":
-	        isStart <- true                                 //switch to the startScreen
 			go StartTimer()
 			break loop
 
@@ -64,7 +72,7 @@ loop:
         //TODO: Add further option like get overtime and current time worked and...
 
         case input == "quit", input == "q":
-            done <- true
+            go Quit()
             break loop
 
 		//Wrong Input
@@ -127,6 +135,7 @@ loop:
 
 // Start the timer
 func StartTimer() {
+	isStart <- true                                 //switch to the startScreen
 	showTime := time.NewTicker(5 * time.Second)     //Setups Ticker of X Seconds
 	startTime := time.Now()                         //get the time work started
 
@@ -139,9 +148,10 @@ func StartTimer() {
 
 			//Print the current working time
 		case curTime := <-showTime.C:
+            showText("clear")
 			showText("start")
             unformattedCurTime := curTime.Sub(startTime)
-			fmt.Print("Your current Work time is: ", unformattedCurTime.Round(time.Second))
+            formattedCurTime = unformattedCurTime.Round(time.Second)
 		}
 	}
 }
@@ -158,22 +168,35 @@ func Options() {
     isMain <- true
 }
 
+func Quit(){
+    done <- true
+}
+
 /*-----------------TUI-Text------------------*/
 
 // Shows text to the cmd according to the label
 func showText(label string) {
 	label = strings.ToLower(label)
 	switch {
+
 	case label == "main":
 		fmt.Println("U wanna Track your time?")
-		fmt.Println("Here are your options:")
-		fmt.Println("Start tracking: \"S(tart)\"")
-		fmt.Println("Options for the Tracker: \"O(ptions)\"")
+		fmt.Print("Here are your options:\n\n")
+		fmt.Println("\tStart tracking:          \"S(tart)\"")
+		fmt.Println("\tOptions for the Tracker: \"O(ptions)\"")
+		fmt.Println("\tQuit:                    \"Q(uit)\"")
+    break
+
 	case label == "start":
 		fmt.Println("Your time gets currently tracked...")
-		fmt.Println("Your current options:")
-		fmt.Println("Stop tracking: \"Stop\"")
+		fmt.Print("Your current options:\n\n")
+		fmt.Println("Stop tracking:  \"S(top)\"")
+        fmt.Print("Pause traching: \"P(ause)\"\n\n")
+        fmt.Println("Your current work time is: ", formattedCurTime)
+    break
+
 	case label == "clear", label == "clr":
 		fmt.Print("\033[H\033[2J")
+    break
 	}
 }
