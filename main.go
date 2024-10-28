@@ -20,6 +20,7 @@ var workTime time.Duration = time.Duration(8 * time.Hour)
 var breakTime time.Duration = time.Duration(30 * time.Minute)
 var refreshRate time.Duration = time.Duration(5 * time.Second)
 var endOfWork bool = false;
+var workedTimeText string = "0 Seconds";
 
 func main() {
 	//start up text and clear after programm ends
@@ -161,8 +162,12 @@ func StartTimer() {
 		case curTime := <-showTime.C:
             clearText()
             showTextStart()
-            unformattedCurTime := curTime.Sub(startTime)
-            formattedCurTime = unformattedCurTime.Round(time.Second)
+            workedTime := curTime.Sub(startTime)
+            workedTimeHours := workedTime.Hours();
+            workedTimeMinutes := workedTime.Minutes();
+            workedTimeSeconds := workedTime.Seconds();
+            workedTimeText = fmt.Sprint(workedTimeHours, "Hours", workedTimeMinutes, "Minutes", workedTimeSeconds, "Seconds")
+            //TODO: fix printing with comma -> rounding but to 5 not if >= 5 then round to 5...
 		}
 	}
 }
@@ -217,10 +222,10 @@ func showTextStart(){
     fmt.Println("Your time gets currently tracked...")
     fmt.Println("Your current options:")
     fmt.Println()
-    fmt.Println("\tStop tracking:  \"S(top)\"")
-    fmt.Println("\tPause traching: \"P(ause)\"")
+    fmt.Println("\tS(top) tracking")
+    fmt.Println("\tP(ause) traching")
     fmt.Println()
-    fmt.Println("Your current work time is: ", formattedCurTime)
+    fmt.Println("Your current work time is: ", workedTimeText)
     fmt.Println()
 }
 
