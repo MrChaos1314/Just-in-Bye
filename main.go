@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+    "encoding/json"
+    "os"
 )
 
 var input string = ""                     //Input String of the std_in
@@ -15,16 +17,31 @@ var isOption chan bool = make(chan bool)  //Needa look how to make this better w
 
 var formattedCurTime time.Duration 
 //Var which will be shown in TUI and used in Options
-//NEEDS TO BE CHANGED -> HAVE TO BE IN A CONF FILE!!
+//Default value ... else it gets loaded in the beginning from a conf
 var workTime time.Duration = time.Duration(8 * time.Hour)
 var breakTime time.Duration = time.Duration(30 * time.Minute)
 var refreshRate time.Duration = time.Duration(5 * time.Second)
 var endOfWork bool = false;
-var workedTimeText string = "0 Seconds";
+var workedTimeText string = "0s";
+
+//Config Json-Struct 
+type conf struct{
+
+    WorkTime time.Duration
+    BreakTime time.Duration
+
+    RefreshRate time.Duration
+
+    EndOfWork bool
+
+};
 
 func main() {
+
 	//start up text and clear after programm ends
 	defer clearText()
+
+    loadConf()
 
 	//checks for the std_input
     clearText()
@@ -132,10 +149,28 @@ loop:
             toggleEndOfWork()
 			break 
 
+		//Change the WorkTime
+		case input == "work", input == "w":
+            changeWorkTime()
+			break 
+
+		//change the BreakTime
+		case input == "break", input == "b":
+            toggleEndOfWork()
+			break 
+
+        case input == "refresh", input == "r":
+            toggleEndOfWork()
+            break
+
         case input == "quit", input == "q":
             go BackToMain()
             break loop
 
+        case input == "save", input == "s":
+            writeConf()
+            go BackToMain()
+            break loop
 		//Wrong input
 		default:
             break
@@ -163,11 +198,7 @@ func StartTimer() {
             clearText()
             showTextStart()
             workedTime := curTime.Sub(startTime)
-            workedTimeHours := workedTime.Hours();
-            workedTimeMinutes := workedTime.Minutes();
-            workedTimeSeconds := workedTime.Seconds();
-            workedTimeText = fmt.Sprint(workedTimeHours, "Hours", workedTimeMinutes, "Minutes", workedTimeSeconds, "Seconds")
-            //TODO: fix printing with comma -> rounding but to 5 not if >= 5 then round to 5...
+            workedTimeText = fmt.Sprint(workedTime.Round(time.Second).String())
 		}
 	}
 }
@@ -193,6 +224,9 @@ func Quit(){
     done <- true
 }
 
+
+/****************Option Functions****************************/
+
 //changes rather Timer should also display when u can leave work
 func toggleEndOfWork(){
 
@@ -203,6 +237,82 @@ func toggleEndOfWork(){
     }
 
 }
+
+func changeWorkTime(){
+    clearText()
+    showTextChangeWorkTime()
+loop:
+	for {
+		//get user Input and LowerCase it
+		fmt.Scan(&input)
+		input = strings.ToLower(input)
+		//decide through the input what the user can do
+		switch {
+
+		//Stops the timer
+		case input == "abort", input == "a":
+		    break loop
+
+        case input == "quit", input == "q":
+            break loop
+
+		//Wrong input
+		default:
+            _, err := fmt.Scanf("%d", &input)
+            if(err != nil){
+                clearText()
+                fmt.Println("WTF is going on!!")
+                fmt.Println("Can't you read???")
+            }
+            //CONTINUE HERE - input before 5 lines needs to be changed maybe
+		}
+	}
+}
+
+
+
+func writeConf(){
+    fd, err := os.Create("./config/options.conf")
+    defer fd.Close();
+    if(err != nil){
+        panic(err);
+    }
+
+    config := &conf{
+        
+        WorkTime: workTime,
+        BreakTime: breakTime,
+
+        RefreshRate: refreshRate, 
+
+        EndOfWork: endOfWork,
+    }
+
+    config_json, _ := json.Marshal(config);
+    written, err := fd.Write(config_json)
+    if(err != nil){
+        panic(err)
+    }
+    fmt.Printf("Bytes written: %d\n", written)
+}
+
+func readConf() (time.Duration, time.Duration, time.Duration, bool){
+    config := &conf{}
+    fd, err := os.ReadFile("./config/options.conf")
+    if(err != nil){
+        panic(err);
+    }
+    json.Unmarshal(fd, config)
+
+    return config.WorkTime, config.BreakTime, config.RefreshRate, config.EndOfWork
+}
+
+func loadConf(){
+    workTime, breakTime, refreshRate, endOfWork = readConf()
+}
+
+/******************************************************************/
+
 
 /*-----------------TUI-Text------------------*/
 
@@ -223,7 +333,7 @@ func showTextStart(){
     fmt.Println("Your current options:")
     fmt.Println()
     fmt.Println("\tS(top) tracking")
-    fmt.Println("\tP(ause) traching")
+    fmt.Println("\tP(ause) tracking")
     fmt.Println()
     fmt.Println("Your current work time is: ", workedTimeText)
     fmt.Println()
@@ -238,6 +348,16 @@ func showTextOptions(){
     fmt.Println("\tE(nd) of Work: ", endOfWork)
     fmt.Println("Q(uit)")
     fmt.Println("")
+}
+
+func showTextChangeWorkTime(){
+    fmt.Println("Change the value for the work time:")
+    fmt.Println()
+    fmt.Println("\tCurrent value for work time in hours: ", workTime.Minutes())
+    fmt.Println()
+    fmt.Println("(A)bort - (Q)uit")
+    fmt.Println()
+    fmt.Print("Change value for work time in hours: ")
 }
 
 func clearText(){
